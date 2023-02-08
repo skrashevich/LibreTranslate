@@ -3,9 +3,9 @@ name: Run tests
 on:
   workflow_dispatch:
   pull_request:
-    branches: [ main ]
+    branches: [ svk ]
   push:
-    branches: [ main ]
+    branches: [ svk ]
     paths:
     - '*.py'
     - 'requirements.txt'
@@ -50,8 +50,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
       - name: Docker build
-        run: docker build -f docker/Dockerfile -t libretranslate .
-
+        run: docker buildx build -f docker/cuda.Dockerfile -t libretranslate .
       - name: Docker build with some models
-        run: docker build -f docker/Dockerfile -t libretranslate --build-arg models=en,es  .
+        run: docker buildx build -f docker/cuda.Dockerfile -t libretranslate --build-arg models=en,ru  .
