@@ -130,18 +130,16 @@ Then open a web browser to http://localhost:5000
 
 ### Run with Docker
 
-Simply run:
-
-```bash
-docker run -ti --rm -p 5000:5000 libretranslate/libretranslate
-```
+Linux/MacOS: `./run.sh [args]`
+Windows: `run.bat [args]`
 
 Then open a web browser to http://localhost:5000
+
 
 ### Build with Docker
 
 ```bash
-docker build [--build-arg with_models=true] -t libretranslate .
+docker build -f docker/Dockerfile [--build-arg with_models=true] -t libretranslate .
 ```
 
 If you want to run the Docker image in a complete offline environment, you need to add the `--build-arg with_models=true` parameter. Then the language models are downloaded during the build process of the image. Otherwise these models get downloaded on the first run of the image/container.
@@ -160,7 +158,7 @@ docker-compose up -d --build
 
 > Feel free to change the [`docker-compose.yml`](https://github.com/LibreTranslate/LibreTranslate/blob/main/docker-compose.yml) file to adapt it to your deployment needs, or use an extra `docker-compose.prod.yml` file for your deployment configuration.
 
-> The models are stored inside the container under `/root/.local/share` and `/root/.local/cache`. Feel free to use volumes if you do not want to redownload the models when the container is destroyed. Be aware that this will prevent the models from being updated!
+> The models are stored inside the container under `/home/libretranslate/.local/share` and `/home/libretranslate/.local/cache`. Feel free to use volumes if you do not want to redownload the models when the container is destroyed. To update the models, use the `--update-models` argument.
 
 ### CUDA
 
@@ -185,21 +183,43 @@ docker-compose -f docker-compose.cuda.yml up -d --build
 | --ga-id                     | Enable Google Analytics on the API client page by providing an ID                                           | `No tracking`               | LT_GA_ID                     |
 | --debug                     | Enable debug environment                                                                                    | `False`           | LT_DEBUG                     |
 | --ssl                       | Whether to enable SSL                                                                                       | `False`               | LT_SSL                       |
-| --frontend-language-source  | Set frontend default language - source                                                                      | `en`          | LT_FRONTEND_LANGUAGE_SOURCE  |
-| --frontend-language-target  | Set frontend default language - target                                                                      | `es`          | LT_FRONTEND_LANGUAGE_TARGET  |
+| --frontend-language-source  | Set frontend default language - source                                                                      | `auto`        | LT_FRONTEND_LANGUAGE_SOURCE  |
+| --frontend-language-target  | Set frontend default language - target                                                                      | `locale` (match site's locale)   | LT_FRONTEND_LANGUAGE_TARGET  |
 | --frontend-timeout          | Set frontend translation timeout                                                                            | `500`         | LT_FRONTEND_TIMEOUT          |
 | --api-keys                  | Enable API keys database for per-user rate limits lookup                                                    | `Don't use API keys` | LT_API_KEYS                  |
-| --api-keys-db-path          | Use a specific path inside the container for the local database. Can be absolute or relative                | `api_keys.db`                      | LT_API_KEYS_DB_PATH          |
+| --api-keys-db-path          | Use a specific path inside the container for the local database. Can be absolute or relative                | `db/api_keys.db`                      | LT_API_KEYS_DB_PATH          |
 | --api-keys-remote           | Use this remote endpoint to query for valid API keys instead of using the local database                    | `Use local API key database` | LT_API_KEYS_REMOTE                  |
 | --get-api-key-link          | Show a link in the UI where to direct users to get an API key                                               | `Don't show a link` | LT_GET_API_KEY_LINK                  |
 | --require-api-key-origin    | Require use of an API key for programmatic access to the API, unless the request origin matches this domain | `No restrictions on domain origin` | LT_REQUIRE_API_KEY_ORIGIN    |
 | --load-only                 | Set available languages                                                                                     | `all from argostranslate`    | LT_LOAD_ONLY                 |
 | --threads                   | Set number of threads                                                                                       | `4`    | LT_THREADS                 |
-| --suggestions               | Allow user suggestions                                                                                      | `false`    | LT_SUGGESTIONS               |
-| --disable-files-translation | Disable files translation                                                                                   | `false`    | LT_DISABLE_FILES_TRANSLATION |
-| --disable-web-ui            | Disable web ui                                                                                              | `false`    | LT_DISABLE_WEB_UI            |
+| --suggestions               | Allow user suggestions                                                                                      | `False`    | LT_SUGGESTIONS               |
+| --disable-files-translation | Disable files translation                                                                                   | `False`    | LT_DISABLE_FILES_TRANSLATION |
+| --disable-web-ui            | Disable web ui                                                                                              | `False`    | LT_DISABLE_WEB_UI            |
+| --update-models             | Update language models at startup                                                                           | `False`    | LT_UPDATE_MODELS            |
+| --metrics                   | Enable the /metrics endpoint for exporting [Prometheus](https://prometheus.io/) usage metrics               | `Disabled`    | LT_METRICS            |
+| --metrics-auth-token        | Protect the /metrics endpoint by allowing only clients that have a valid Authorization Bearer token         | `No auth`    | LT_METRICS_AUTH_TOKEN            |
+| --url-prefix                | Add prefix to URL: example.com:5000/url-prefix/                                                             | `/`    | LT_URL_PREFIX            |
 
 Note that each argument has an equivalent environment variable that can be used instead. The env. variables overwrite the default values but have lower priority than the command arguments and are particularly useful if used with Docker. The environment variable names are the upper-snake-case of the equivalent command argument's name with a `LT` prefix.
+
+## Update
+
+### Software
+
+If you installed with pip:
+
+`pip install -U libretranslate`
+
+If you're using docker:
+
+`docker pull libretranslate/libretranslate`
+
+### Language Models
+
+Start the program with the `--update-models` argument. For example: `libretranslate --update-models` or `./run.sh --update-models`.
+
+Alternatively you can also run the `scripts/install_models.py` script.
 
 ## Run with WSGI and Gunicorn
 
@@ -250,6 +270,47 @@ ltmanage keys remove <api-key>
 ltmanage keys
 ```
 
+## Prometheus Metrics
+
+LibreTranslate has Prometheus [exporter](https://prometheus.io/docs/instrumenting/exporters/) capabilities when you pass the `--metrics` argument at startup (disabled by default). When metrics are enabled, a `/metrics` endpoint is mounted on the instance:
+
+http://localhost:5000/metrics
+
+```
+# HELP libretranslate_http_requests_in_flight Multiprocess metric
+# TYPE libretranslate_http_requests_in_flight gauge
+libretranslate_http_requests_in_flight{api_key="",endpoint="/translate",request_ip="127.0.0.1"} 0.0
+# HELP libretranslate_http_request_duration_seconds Multiprocess metric
+# TYPE libretranslate_http_request_duration_seconds summary
+libretranslate_http_request_duration_seconds_count{api_key="",endpoint="/translate",request_ip="127.0.0.1",status="200"} 0.0
+libretranslate_http_request_duration_seconds_sum{api_key="",endpoint="/translate",request_ip="127.0.0.1",status="200"} 0.0
+```
+
+You can then configure `prometheus.yml` to read the metrics:
+
+```
+scrape_configs:
+  - job_name: "libretranslate"
+    
+    # Needed only if you use --metrics-auth-token
+    #authorization:
+      #credentials: "mytoken"
+    
+    static_configs:
+      - targets: ["localhost:5000"]
+```
+
+To secure the `/metrics` endpoint you can also use `--metrics-auth-token mytoken`.
+
+If you use Gunicorn, make sure to create a directory for storing multiprocess data metrics and set `PROMETHEUS_MULTIPROC_DIR`:
+
+```
+mkdir -p /tmp/prometheus_data
+rm /tmp/prometheus_data/*
+export PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_data 
+gunicorn -c scripts/gunicorn_conf.py --bind 0.0.0.0:5000 'wsgi:app(metrics=True)' 
+```
+
 ## Language Bindings
 
 You can use the LibreTranslate API using the following bindings:
@@ -264,7 +325,8 @@ You can use the LibreTranslate API using the following bindings:
  - Swift: https://github.com/wacumov/libretranslate
  - Unix: https://github.com/argosopentech/LibreTranslate-sh
  - Shell: https://github.com/Hayao0819/Hayao-Tools/tree/master/libretranslate-sh
-
+ - Java: https://github.com/suuft/libretranslate-java
+ - 
 ## Discourse Plugin
 
 You can use this [discourse translator plugin](https://github.com/LibreTranslate/discourse-translator) to translate [Discourse](https://discourse.org) topics. To install it simply modify `/var/discourse/containers/app.yml`:
@@ -300,26 +362,75 @@ This is a list of public LibreTranslate instances, some require an API key. If y
 URL |API Key Required | Links
 --- | --- | ---
 [libretranslate.com](https://libretranslate.com)|:heavy_check_mark:|[Get API Key](https://portal.libretranslate.com)
-[libretranslate.de](https://libretranslate.de)|-
 [translate.argosopentech.com](https://translate.argosopentech.com/)|-
-[translate.api.skitzen.com](https://translate.api.skitzen.com/)|-
-[translate.fortytwo-it.com](https://translate.fortytwo-it.com/)|-
 [translate.terraprint.co](https://translate.terraprint.co/)|-
 [lt.vern.cc](https://lt.vern.cc)|-
 
 ## TOR/i2p Mirrors
 
-URL |API Key Required|Payment Link|Cost
---- | --- | --- | ---
-[lt.vernccvbvyi5qhfzyqengccj7lkove6bjot2xhh5kajhwvidqafczrad.onion](http://lt.vernccvbvyi5qhfzyqengccj7lkove6bjot2xhh5kajhwvidqafczrad.onion/)|-|-
-[lt.vern.i2p](http://vernf45n7mxwqnp5riaax7p67pwcl7wcefdcnqqvim7ckdx4264a.b32.i2p/)|-|-
+URL |
+--- |
+[lt.vernccvbvyi5qhfzyqengccj7lkove6bjot2xhh5kajhwvidqafczrad.onion](http://lt.vernccvbvyi5qhfzyqengccj7lkove6bjot2xhh5kajhwvidqafczrad.onion/)|
+[lt.vern.i2p](http://vernf45n7mxwqnp5riaax7p67pwcl7wcefdcnqqvim7ckdx4264a.b32.i2p/)|
 
 
-## Adding New Languages
+## Adding New Language Models
 
 To add new languages you first need to train an Argos Translate model. See [this video](https://odysee.com/@argosopentech:7/training-an-Argos-Translate-model-tutorial-2022:2?r=DMnK7NqdPNHRCfwhmKY9LPow3PqVUUgw) for details.
 
 First you need to collect data, for example from [Opus](http://opus.nlpl.eu/), then you need to add the data to [data-index.json](https://github.com/argosopentech/argos-train/blob/master/data-index.json) in the [Argos Train](https://github.com/argosopentech/argos-train) repo.
+
+## Localization
+
+The LibreTranslate Web UI is available in all the languages for which LibreTranslate can translate to. It can also (roughly) [translate itself!](https://github.com/LibreTranslate/LibreTranslate/blob/main/scripts/update_locales.py) Some languages might not appear in the UI since they haven't been reviewed by a human yet. You can enable all languages by turning on `--debug` mode.
+
+To help improve or review the UI translations:
+ - Go to https://hosted.weblate.org/projects/libretranslate/app/#translations. All changes are automatically pushed to this repository.
+ - Once all strings have been reviewed/edited, open a pull request and change `libretranslate/locales/{code}/meta.json`:
+
+ ```json
+{
+	"name": "<Language>",
+	"reviewed": true <-- Change this from false to true
+}
+ ```
+
+### UI Languages
+
+Language | Reviewed | Weblate Link
+-------- | -------- | ------------
+Arabic |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/ar/)
+Azerbaijani |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/az/)
+Chinese |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/zh/)
+Czech |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/cs/)
+Danish |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/da/)
+Dutch |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/nl/)
+English | :heavy_check_mark: | [Edit](https://hosted.weblate.org/projects/libretranslate/app/)
+Esperanto |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/eo/)
+Finnish |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/fi/)
+French |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/fr/)
+German | :heavy_check_mark: | [Edit](https://hosted.weblate.org/translate/libretranslate/app/de/)
+Greek |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/el/)
+Hebrew |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/he/)
+Hindi |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/hi/)
+Hungarian |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/hu/)
+Indonesian |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/id/)
+Irish |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/ga/)
+Italian | :heavy_check_mark: | [Edit](https://hosted.weblate.org/translate/libretranslate/app/it/)
+Japanese |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/ja/)
+Kabyle |  | [Edit](https://hosted.weblate.org/projects/libretranslate/app/kab/)
+Korean |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/ko/)
+Occitan |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/oc/)
+Persian |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/fa/)
+Polish |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/pl/)
+Portuguese |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/pt/)
+Russian |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/ru/)
+Slovak |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/sk/)
+Spanish | :heavy_check_mark: | [Edit](https://hosted.weblate.org/translate/libretranslate/app/es/)
+Swedish |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/sv/)
+Turkish |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/tr/)
+Ukranian |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/uk/)
+Vietnamese |  | [Edit](https://hosted.weblate.org/translate/libretranslate/app/vi/)
 
 ## Roadmap
 

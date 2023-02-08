@@ -13,25 +13,24 @@ setup(
     packages=find_packages(),
     # packages=find_packages(include=['openpredict']),
     # package_dir={'openpredict': 'openpredict'},
-    package_data={'': ['static/*', 'static/**/*', 'templates/*']},
+    package_data={'': ['static/*', 'static/**/*', 'templates/*', 'locales/**/meta.json', 'locales/**/**/*.mo']},
     include_package_data=True,
     entry_points={
         'console_scripts': [
-            'libretranslate=app.main:main',
-            'ltmanage=app.manage:manage'
+            'libretranslate=libretranslate.main:main',
+            'ltmanage=libretranslate.manage:manage'
         ],
     },
 
-    python_requires='>=3.7.0',
+    python_requires='>=3.8.0',
     long_description=open('README.md').read(),
     long_description_content_type="text/markdown",
     install_requires=open("requirements.txt", "r").readlines(),
-    tests_require=['pytest==7.1.2'],
+    tests_require=['pytest==7.2.0'],
     setup_requires=['pytest-runner'],
     classifiers=[
         "License :: OSI Approved :: GNU Affero General Public License v3 ",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10"

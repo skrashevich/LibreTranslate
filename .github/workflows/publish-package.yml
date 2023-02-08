@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.7', '3.8', '3.9', '3.10']
+        python-version: ['3.8', '3.9', '3.10']
 
     steps:
     - uses: actions/checkout@v2
@@ -26,6 +26,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install pytest flake8
         pip install .
+        python scripts/compile_locales.py
 
     - name: Check code style with flake8 (lint)
       run: |
@@ -60,5 +61,7 @@ jobs:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
         TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
       run: |
+        pip install Babel==2.11.0
+        python scripts/compile_locales.py
         python setup.py sdist bdist_wheel
         twine upload dist/*
